@@ -1,0 +1,14 @@
+This is a fork of 
+
+The original description:
+    This application contributes 'backup' subcommand to django-admin.py and manage.py. 
+ 
+The reason for the fork is to add a password protected zipfile feature.  This makes emailing the file more secure, but does not necessarily make it "secure".  Of particular note, the password you use may be visible to other users on system while the zip is running.  Again, more secure but not necessarily "secure"
+
+REF: http://www.lockdown.co.uk/?pg=combi  
+ 
+Usage: 
+    python manage.py backup
+    python manage.py backup -m my@email.com
+    python manage.py backup -m my@email.com -z   (will zip using password in backup.py)
+    python manage.py backup -m my@email.com -c   (will compress using GZip -- but does not have password)
