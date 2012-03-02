@@ -125,18 +125,6 @@ class Command(BaseCommand):
         #os.system('rm %s' % infile)
 
     def do_sqlite_backup(self, outfile):
-        args = []
-        if self.user:
-            args += ["--user=%s" % self.user]
-        if self.passwd:
-            args += ["--password=%s" % self.passwd]
-        if self.host:
-            args += ["--host=%s" % self.host]
-        if self.port:
-            args += ["--port=%s" % self.port]
-        args += [self.db]
-
-        print self.db
         os.system('cp %s %s' % (self.db,outfile))
 
     def do_mysql_backup(self, outfile):
