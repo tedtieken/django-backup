@@ -20,9 +20,11 @@ class Command(BaseCommand):
             help='Include Directories'),
         make_option('--zipencrypt', '-z', action='store_true', default=False,
             dest='zipencrypt', help='Compress and encrypt SQL dump file using zip'),
+        make_option('--backup_docs', '-b', action='store_true', default=False,
+            dest='backup_docs', help='Backup your docs directory alongside the DB dump.'),
 
     )
-    help = "Backup database. Only Mysql and Postgresql engines are implemented"
+    help = "Backup database. Only Mysql, Postgresql and Sqlite engines are implemented"
 
     def _time_suffix(self):
         return time.strftime('%Y%m%d-%H%M%S')
@@ -32,24 +34,45 @@ class Command(BaseCommand):
         self.compress = options.get('compress')
         self.directories = options.get('directories')
         self.zipencrypt = options.get('zipencrypt')
+        self.backup_docs = options.get('backup_docs')
         self.current_site = Site.objects.get_current()
         self.encrypt_password = "ENTER PASSWORD HERE"
 
         from django.db import connection
         from django.conf import settings
-
-        self.engine = settings.DATABASE_ENGINE
-        self.db = settings.DATABASE_NAME
-        self.user = settings.DATABASE_USER
-        self.passwd = settings.DATABASE_PASSWORD
-        self.host = settings.DATABASE_HOST
-        self.port = settings.DATABASE_PORT
-
+        
+        try:
+            self.engine = settings.DATABASE_ENGINE
+            self.db = settings.DATABASE_NAME
+            self.user = settings.DATABASE_USER
+            self.passwd = settings.DATABASE_PASSWORD
+            self.host = settings.DATABASE_HOST
+            self.port = settings.DATABASE_PORT
+        except:
+            #Support for changed database format
+            self.engine = settings.DATABASES['default']['ENGINE']
+            self.db = settings.DATABASES['default']['NAME']
+            self.user = settings.DATABASES['default']['USER']
+            self.passwd = settings.DATABASES['default']['PASSWORD']
+            self.host = settings.DATABASES['default']['HOST']
+            self.port = settings.DATABASES['default']['PORT']
+            
+        self.media_directory = settings.MEDIA_ROOT
+            
         backup_dir = 'backups'
+        if self.backup_docs:
+            backup_dir = "backups/%s" % self._time_suffix()
+            
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
 
         outfile = os.path.join(backup_dir, 'backup_%s.sql' % self._time_suffix())
+
+        #Backup documents?
+        if self.backup_docs:
+            print "Backing up documents directory to %s from %s" % (backup_dir,self.media_directory)
+            dir_outfile = os.path.join(backup_dir, 'media_backup.tar.gz')
+            self.compress_dir(self.media_directory, dir_outfile)
 
         # Doing backup
         if self.engine == 'mysql':
@@ -58,6 +81,9 @@ class Command(BaseCommand):
         elif self.engine in ('postgresql_psycopg2', 'postgresql'):
             print 'Doing Postgresql backup to database %s into %s' % (self.db, outfile)
             self.do_postgresql_backup(outfile)
+        elif 'sqlite3' in self.engine:
+            print 'Doing sqlite backup to database %s into %s' % (self.db, outfile)
+            self.do_sqlite_backup(outfile)
         else:
             raise CommandError('Backup in %s engine not implemented' % self.engine)
 
@@ -111,6 +137,9 @@ class Command(BaseCommand):
         
         #os.system('gpg --yes --passphrase %s -c %s' % (self.encrypt_password, infile))        
         #os.system('rm %s' % infile)
+
+    def do_sqlite_backup(self, outfile):
+        os.system('cp %s %s' % (self.db,outfile))
 
     def do_mysql_backup(self, outfile):
         args = []
