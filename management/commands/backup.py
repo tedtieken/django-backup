@@ -37,14 +37,23 @@ class Command(BaseCommand):
 
         from django.db import connection
         from django.conf import settings
-
-        self.engine = settings.DATABASE_ENGINE
-        self.db = settings.DATABASE_NAME
-        self.user = settings.DATABASE_USER
-        self.passwd = settings.DATABASE_PASSWORD
-        self.host = settings.DATABASE_HOST
-        self.port = settings.DATABASE_PORT
-
+        
+        try:
+            self.engine = settings.DATABASE_ENGINE
+            self.db = settings.DATABASE_NAME
+            self.user = settings.DATABASE_USER
+            self.passwd = settings.DATABASE_PASSWORD
+            self.host = settings.DATABASE_HOST
+            self.port = settings.DATABASE_PORT
+        except:
+            #Support for changed database format
+            self.engine = settings.DATABASES['default']['ENGINE']
+            self.db = settings.DATABASES['default']['NAME']
+            self.user = settings.DATABASES['default']['USER']
+            self.passwd = settings.DATABASES['default']['PASSWORD']
+            self.host = settings.DATABASES['default']['HOST']
+            self.port = settings.DATABASES['default']['PORT']
+            
         backup_dir = 'backups'
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
@@ -58,6 +67,9 @@ class Command(BaseCommand):
         elif self.engine in ('postgresql_psycopg2', 'postgresql'):
             print 'Doing Postgresql backup to database %s into %s' % (self.db, outfile)
             self.do_postgresql_backup(outfile)
+        elif 'sqlite3' in self.engine:
+            print 'Doing sqlite backup to database %s into %s' % (self.db, outfile)
+            self.do_sqlite_backup(outfile)
         else:
             raise CommandError('Backup in %s engine not implemented' % self.engine)
 
@@ -111,6 +123,21 @@ class Command(BaseCommand):
         
         #os.system('gpg --yes --passphrase %s -c %s' % (self.encrypt_password, infile))        
         #os.system('rm %s' % infile)
+
+    def do_sqlite_backup(self, outfile):
+        args = []
+        if self.user:
+            args += ["--user=%s" % self.user]
+        if self.passwd:
+            args += ["--password=%s" % self.passwd]
+        if self.host:
+            args += ["--host=%s" % self.host]
+        if self.port:
+            args += ["--port=%s" % self.port]
+        args += [self.db]
+
+        print self.db
+        os.system('cp %s %s' % (self.db,outfile))
 
     def do_mysql_backup(self, outfile):
         args = []
