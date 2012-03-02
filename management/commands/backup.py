@@ -20,9 +20,11 @@ class Command(BaseCommand):
             help='Include Directories'),
         make_option('--zipencrypt', '-z', action='store_true', default=False,
             dest='zipencrypt', help='Compress and encrypt SQL dump file using zip'),
+        make_option('--backup_docs', '-b', action='store_true', default=False,
+            dest='backup_docs', help='Backup your docs directory alongside the DB dump.'),
 
     )
-    help = "Backup database. Only Mysql and Postgresql engines are implemented"
+    help = "Backup database. Only Mysql, Postgresql and Sqlite engines are implemented"
 
     def _time_suffix(self):
         return time.strftime('%Y%m%d-%H%M%S')
@@ -32,6 +34,7 @@ class Command(BaseCommand):
         self.compress = options.get('compress')
         self.directories = options.get('directories')
         self.zipencrypt = options.get('zipencrypt')
+        self.backup_docs = options.get('backup_docs')
         self.current_site = Site.objects.get_current()
         self.encrypt_password = "ENTER PASSWORD HERE"
 
@@ -54,11 +57,22 @@ class Command(BaseCommand):
             self.host = settings.DATABASES['default']['HOST']
             self.port = settings.DATABASES['default']['PORT']
             
+        self.media_directory = settings.MEDIA_ROOT
+            
         backup_dir = 'backups'
+        if self.backup_docs:
+            backup_dir = "backups/%s" % self._time_suffix()
+            
         if not os.path.exists(backup_dir):
             os.makedirs(backup_dir)
 
         outfile = os.path.join(backup_dir, 'backup_%s.sql' % self._time_suffix())
+
+        #Backup documents?
+        if self.backup_docs:
+            print "Backing up documents directory to %s from %s" % (backup_dir,self.media_directory)
+            dir_outfile = os.path.join(backup_dir, 'media_backup.tar.gz')
+            self.compress_dir(self.media_directory, dir_outfile)
 
         # Doing backup
         if self.engine == 'mysql':
